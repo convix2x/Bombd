@@ -498,7 +498,6 @@ public class SimServer
     private void UpdateRaceSetup()
     {
         if (_raceSettings == null || Type != ServerType.Competitive || _players.Count == 0) return;
-
         _startingGrid.Value.Clear();
         foreach (GamePlayer player in _players)
         {
@@ -507,18 +506,22 @@ public class SimServer
             if (player.Guest != null)
                 _startingGrid.Value.Add(new GridPositionData(player.Guest.NameUid, true));
         }
-
-        int maxAi = _aiInfo.Value.DataSet.Length;
+    
         int maxHumans = _raceSettings.Value.MaxHumans;
-        int numAi = Math.Min(maxAi, maxHumans - _startingGrid.Value.Count);
-        if (numAi <= 0) numAi = 0;
-        
+        int newNumAi = Math.Max(0, Math.Min(AiInfo.MaxDataSize, maxHumans - _startingGrid.Value.Count));
+    
         // AI are owned by players, if one player disconnects, their AI is destroyed,
         // so distribute them between all players
         List<string> playerNames = _players.Select(player => player.Username).ToList();
-        _aiInfo.Value = _raceSettings.Value.AiEnabled ? 
-            new AiInfo(Platform, playerNames, numAi) : new AiInfo(Platform);
-
+    
+        // Only rebuild and sync _aiInfo if the count changed
+        if (newNumAi != _aiInfo.Value.Count)
+        {
+            _aiInfo.Value = _raceSettings.Value.AiEnabled ?
+                new AiInfo(Platform, playerNames, newNumAi) : new AiInfo(Platform);
+            _aiInfo.Sync();
+        }
+    
         for (int i = 0; i < _aiInfo.Value.Count; ++i)
         {
             _startingGrid.Value.Add(new GridPositionData(
@@ -526,7 +529,7 @@ public class SimServer
                 false
             ));
         }
-        
+    
         _startingGrid.Sync();
     }
     
